@@ -1,0 +1,5 @@
+secret:
+  ignored_matches:
+  - match: b11a7eda9308b8ef9f3517af6ef417639143e3f9a2e432fbf54c4ae568b8e6bc
+    name: Generic Password - src/main.ts:l.69
+version: 2
