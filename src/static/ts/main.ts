@@ -1,56 +1,54 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from '@tauri-apps/api/event';
+import { showSection, showToast } from './utils.ts';
 
 // Variabili globali
 let activeCategoryFilter = 'all';
 let currentPasswordId = null;
 
-function showToast(message : string, type = 'success') {
-	const toastMessage = document.getElementById('toast-message') as HTMLInputElement | null;
-	const toastIcon = document.getElementById('toast-icon');
-	const toast = document.getElementById('toast');
+function goto(section : "Register" | "Login") {
+	const registerMasterPassword = document.getElementById("register-master-password") as HTMLInputElement;
+	const registerConfirmMasterPassword = document.getElementById("register-confirm-master-password") as HTMLInputElement;
+	const loginMasterPassword = document.getElementById("login-master-password") as HTMLInputElement;
 
-	if (toastMessage) { toastMessage.textContent = message; }
-	
-	switch(type) {
-		case 'success':
-			if (toastIcon) { toastIcon.className = 'fas fa-check-circle'; }
-			break;
-		case 'warning':
-			if (toastIcon) { toastIcon.className = 'fas fa-exclamation-circle'; }
-			break;
-		case 'error':
-			if (toastIcon) { toastIcon.className = 'fas fa-times-circle'; }
-			break;
-	}
-	
-	// Mostra il toast
-	toast?.classList.add('show');
-	
-	// Nascondi il toast dopo 5 secondi
-	setTimeout(() => { toast?.classList.remove('show'); }, 5000);
+	registerMasterPassword.value = '';
+	registerConfirmMasterPassword.value = '';
+	loginMasterPassword.value = '';
+
+	showSection(section === 'Register' ? 'register-section' : 'login-section');
 };
 
-async function onRegister() {
-	const master_password = document.getElementById("register-master-password") as HTMLInputElement | null;
-  	const confirm_master_password = document.getElementById("confirm-register-master-password") as HTMLInputElement | null;
+async function onLogin() {
+	const masterPassword = document.getElementById("login-master-password") as HTMLInputElement;
 
-	const password_value = master_password?.value.trim();
-	const confirm_value = confirm_master_password?.value.trim();
+	const passwordValue = masterPassword.value.trim();
 
-	console.log(password_value, confirm_value);
-
-	if (!password_value || password_value.length  < 4) {
+	if (passwordValue.length  < 4) {
         showToast('La password master deve essere di almeno 4 caratteri', 'error');
         return;
 	}
 
-  	if (password_value !== confirm_value) {
+	await invoke('login', { password : passwordValue });
+};
+
+async function onRegister() {
+	const masterPassword = document.getElementById("register-master-password") as HTMLInputElement;
+  	const confirmMasterPassword = document.getElementById("register-confirm-master-password") as HTMLInputElement;
+
+	const passwordValue = masterPassword.value.trim();
+	const confirmValue = confirmMasterPassword.value.trim();
+
+	if (passwordValue.length  < 4) {
+        showToast('La password master deve essere di almeno 4 caratteri', 'error');
+        return;
+	}
+
+  	if (passwordValue !== confirmValue) {
 		showToast("Le password non coincidono", "error");
 		return;
   	}
 
-	await invoke('register', { password : password_value });
+	await invoke('register', { password : passwordValue });
 };
 
 function openAddPasswordModal() {
@@ -59,8 +57,6 @@ function openAddPasswordModal() {
 
 	modalTitle.textContent = 'Aggiungi Password';
 	currentPasswordId = null;
-
-	console.log(currentPasswordId);
 
 	const title = document.getElementById('title') as HTMLInputElement;
 	const username = document.getElementById('username') as HTMLInputElement;
@@ -80,37 +76,23 @@ function openAddPasswordModal() {
 	isFavorite.checked = false;
 	
 	passwordModal.classList.add('active');
-}
+};
 
 function closeModal() {
 	const passwordModal = document.getElementById('password-modal') as HTMLElement;
 	passwordModal.classList.remove('active');
-}
+};
 
 function renderPasswordList() {
-
-}
-
-listen<string>('registered-successfully', () => {
-	showToast('Registrazione avvenuta con successo', 'success');
-
-	const register_section = document.getElementById("register-section");
-	const dashboard_section = document.getElementById("dashboard-section");
-
-	register_section?.classList.remove("active-section");
-	register_section?.classList.add("inactive-section");
-
-	dashboard_section?.classList.remove("inactive-section");
-	dashboard_section?.classList.add("active-section");
-});
+};
   
-
 window.addEventListener("DOMContentLoaded", () => {
   	const loginSection = document.getElementById("login-section") as HTMLElement;
-  	const registerSection = document.getElementById("register-section");
+  	const registerSection = document.getElementById("register-section") as HTMLElement;
   	const dashboardSection = document.getElementById("dashboard-section") as HTMLElement;
 	const categoryButtons = document.querySelectorAll('.category-btn');
-	const masterPasswordInput = document.getElementById('master-password') as HTMLInputElement;
+	const gotoRegisterButton = document.getElementById("goto-register-btn") as HTMLButtonElement;
+	const gotoLoginButton = document.getElementById("goto-login-btn") as HTMLButtonElement;
   	const registerButton = document.getElementById("register-btn") as HTMLButtonElement;
   	const loginButton = document.getElementById("login-btn") as HTMLButtonElement;
 	const logoutButton = document.getElementById('logout-btn') as HTMLButtonElement;
@@ -118,17 +100,20 @@ window.addEventListener("DOMContentLoaded", () => {
 	const closeModalButton = document.querySelector('.close-modal') as HTMLButtonElement;
 
 
+	listen<string>('registered-successfully', () => {
+		showToast('Registrazione avvenuta con successo', 'success');
+		showSection(dashboardSection);
+	});
+
 	addNewButton.addEventListener("click", openAddPasswordModal)
 	closeModalButton.addEventListener('click', closeModal);
   	registerButton.addEventListener("click", onRegister);
+	loginButton.addEventListener("click", onLogin);
+	gotoRegisterButton.addEventListener("click", () => goto("Register"));
+	gotoLoginButton.addEventListener("click", () => goto("Login"));
+	
 	logoutButton.addEventListener('click', () => {
-        dashboardSection.classList.remove('active-section');
-        dashboardSection.classList.add('inactive-section');
-        
-        loginSection.classList.remove('inactive-section');
-        loginSection.classList.add('active-section');
-        
-        masterPasswordInput.value = '';
+		showSection(loginSection)
     });
 
 	categoryButtons.forEach(btn => {
@@ -142,9 +127,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     document.querySelectorAll('.toggle-password').forEach(button => {
         button.addEventListener('click', () => {
-            const passwordField = button.parentElement?.querySelector('input');
-
-			if (!passwordField) return;
+            const passwordField = button.parentElement?.querySelector('input') as HTMLInputElement;
 
             if (passwordField.type === 'password') {
                 passwordField.type = 'text';
@@ -160,6 +143,6 @@ window.addEventListener("DOMContentLoaded", () => {
     	if (event.key !== "Enter") return;
 		event.preventDefault();
 
-		if (registerSection?.classList.contains("active-section")) onRegister();
+		if (registerSection.classList.contains("active-section")) onRegister();
 	});
 });

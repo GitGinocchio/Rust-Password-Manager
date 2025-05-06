@@ -1,13 +1,16 @@
 use std::sync::{Arc, Mutex};
+use rusqlite::Connection;
 
 pub struct State {
+    pub conn: Mutex<Connection>,
     pub key: Arc<Mutex<Option<Vec<u8>>>>,
 }
 
 impl State {
-    pub fn new() -> Self {
+    pub fn new(conn : Connection) -> Self {
         Self {
             key: Arc::new(Mutex::new(None)),
+            conn: Mutex::new(conn),
         }
     }
 

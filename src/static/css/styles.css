@@ -861,8 +861,8 @@ textarea {
 /* Toast notifications */
 .toast {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+  bottom: 0rem;
+  right: 1rem;
   min-width: 300px;
   background: var(--color-card);
   border-radius: var(--radius-md);
@@ -874,6 +874,7 @@ textarea {
 }
 
 .toast.show {
+  bottom: 1rem;
   transform: translateY(0);
 }
 

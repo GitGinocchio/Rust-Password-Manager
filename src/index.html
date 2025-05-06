@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VaultKeeper - Password Manager</title>
-    <link rel="stylesheet" href="./src/styles.css">
+    <link rel="stylesheet" href="./static/css/styles.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -25,7 +25,7 @@
                     <div class="input-group">
                         <label for="master-password">Password Master</label>
                         <div class="password-input">
-                            <input type="password" id="register-master-password" placeholder="Inserisci la tua password master">
+                            <input type="password" id="register-master-password" placeholder="Crea una tua password master">
                             <button class="toggle-password" type="button">
                                 <i class="fas fa-eye"></i>
                             </button>
@@ -34,14 +34,19 @@
                     <div class="input-group">
                         <label for="confirm-master-password">Confirm Password Master</label>
                         <div class="password-input">
-                            <input type="password" id="confirm-register-master-password" placeholder="Conferma la tua password master">
+                            <input type="password" id="register-confirm-master-password" placeholder="Conferma la tua password master">
                             <button class="toggle-password" type="button">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
                     </div>
 
-                    <button id="register-btn" class="primary-btn">Register</button>
+                    <div class="input-group">
+                        <button id="register-btn" class="primary-btn">Register</button>
+                        <span style="align-self: center;">or</span>
+                        <button id="goto-login-btn" class="secondary-btn">Login</button>
+                    </div>
+                    
                     <div class="register-footer">
                         <span class="info-text">Prima volta qui?</span>
                         <span class="help-text">La tua password master è la chiave principale per accedere al tuo vault. Non potrà essere recuperata se dimenticata.</span>
@@ -71,7 +76,12 @@
                             </button>
                         </div>
                     </div>
-                    <button id="login-btn" class="primary-btn">Accedi</button>
+
+                    <div class="input-group">
+                        <button id="login-btn" class="primary-btn">Login</button>
+                        <span style="align-self: center;">or</span>
+                        <button id="goto-register-btn" class="secondary-btn">Register</button>
+                    </div>
                     <div class="login-footer">
                         <span class="info-text">Tieni al sicuro la tua password master!</span>
                         <span class="help-text">La tua password master è la chiave principale per accedere al tuo vault. Non potrà essere recuperata se dimenticata.</span>
@@ -236,6 +246,6 @@
             <div class="toast-progress"></div>
         </div>
     </div>
-    <script type="module" src="./src/main.ts"></script>
+    <script type="module" src="./static/ts/main.ts"></script>
 </body>
 </html>

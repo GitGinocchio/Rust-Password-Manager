@@ -1,15 +1,15 @@
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY,
-    master_hash TEXT NOT NULL,
-    auth_salt TEXT NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    master_hash BLOB NOT NULL,
+    master_salt TEXT NOT NULL,
     encryption_salt TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS credentials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL, 
-    id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
     username TEXT,
     email TEXT,

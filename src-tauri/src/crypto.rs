@@ -11,15 +11,16 @@ use rand::Rng;
 
 const NONCE_LEN: usize = 12;
 
-pub fn derive(password: &str) -> Result<Vec<u8>, String> {
-    let salt: SaltString = SaltString::generate(&mut OsRng);
+pub fn derive(password: &String) -> Result<(Vec<u8>, SaltString), String> {
+    let salt = SaltString::generate(&mut OsRng);
+
     let argon2 = Argon2::default();
 
     match argon2.hash_password(password.as_bytes(), &salt) {
         Ok(hash) => {
             let hash_bytes = hash.to_string().into_bytes();
-            Ok(hash_bytes)
-        }
+            Ok((hash_bytes, salt))
+        },
         Err(e) => Err(format!("Errore nella derivazione della chiave: {}", e)),
     }
 }
