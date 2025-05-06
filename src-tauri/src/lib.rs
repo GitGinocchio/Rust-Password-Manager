@@ -13,7 +13,7 @@ mod crypto;
 use crypto::{decrypt, derive, encrypt};
 
 #[tauri::command]
-fn register(app_handle: tauri::AppHandle, state: tauri::State<'_, Mutex<State>>, password: String) -> Result<(), String> {
+fn register(app_handle: tauri::AppHandle, state: tauri::State<'_, Mutex<State>>, password: String) -> Result<(), Err> {
     let key = derive(password.as_str());
 
     match key {
@@ -34,6 +34,11 @@ fn register(app_handle: tauri::AppHandle, state: tauri::State<'_, Mutex<State>>,
         }
     }
 
+    Ok(())
+}
+
+#[tauri::command]
+fn login(app_handle: tauri::AppHandle, state: tauri::State<'_, Mutex<State>>, password: String) -> Result<(), Err> {
     Ok(())
 }
 
