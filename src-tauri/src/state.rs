@@ -1,17 +1,27 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use rusqlite::Connection;
 
-pub struct State {
-    pub conn: Mutex<Connection>,
-    pub key: Arc<Mutex<Option<Vec<u8>>>>,
+pub struct AppState {
+    conn: Arc<Mutex<Option<Connection>>>,
+    key: Arc<Mutex<Option<Vec<u8>>>>,
 }
 
-impl State {
-    pub fn new(conn : Connection) -> Self {
-        Self {
+impl AppState {
+    pub fn new() -> Self {
+        AppState {
             key: Arc::new(Mutex::new(None)),
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(None)),
         }
+    }
+
+    pub fn set_conn(&self, conn: Connection) {
+        let mut guard = self.conn.lock().unwrap();
+        *guard = Some(conn);
+    }
+
+    pub fn get_conn(&self) -> MutexGuard<'_, Option<Connection>> {
+        let guard = self.conn.lock().unwrap();
+        return guard;
     }
 
     pub fn set_key(&self, key: Vec<u8>) {

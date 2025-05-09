@@ -3,7 +3,7 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+    password_hash::{rand_core::OsRng, PasswordHasher, PasswordVerifier, PasswordHash, SaltString},
     Argon2,
 };
 use base64::{engine::general_purpose, Engine as _};
@@ -22,6 +22,20 @@ pub fn derive(password: &String) -> Result<(Vec<u8>, SaltString), String> {
             Ok((hash_bytes, salt))
         },
         Err(e) => Err(format!("Errore nella derivazione della chiave: {}", e)),
+    }
+}
+
+pub fn verify(password: &String, hash_bytes: &Vec<u8>) -> Result<bool, String> {
+    let hash_str = String::from_utf8(hash_bytes.clone()).map_err(|e| format!("Hash non UTF-8 valido: {}", e))?;
+
+    let parsed_hash = PasswordHash::new(&hash_str).map_err(|e| format!("Hash Argon2 non valido: {}", e))?;
+
+    let argon2 = Argon2::default();
+
+    match argon2.verify_password(password.as_bytes(), &parsed_hash) {
+        Ok(_) => Ok(true),
+        Err(argon2::password_hash::Error::Password) => Ok(false), // password sbagliata
+        Err(e) => Err(format!("Errore durante la verifica della password: {}", e)),
     }
 }
 

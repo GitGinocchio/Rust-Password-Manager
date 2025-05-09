@@ -32,6 +32,10 @@ export function showSection(section : string | HTMLElement) {
     for (const section of sections) {
         section.classList.remove("active-section");
         section.classList.add("inactive-section");
+
+		section.querySelectorAll("input").forEach((input: HTMLInputElement) => {
+			input.value = '';
+		});
     }
 
     sectionElement.classList.remove("inactive-section");

@@ -6,18 +6,6 @@ import { showSection, showToast } from './utils.ts';
 let activeCategoryFilter = 'all';
 let currentPasswordId = null;
 
-function goto(section : "Register" | "Login") {
-	const registerMasterPassword = document.getElementById("register-master-password") as HTMLInputElement;
-	const registerConfirmMasterPassword = document.getElementById("register-confirm-master-password") as HTMLInputElement;
-	const loginMasterPassword = document.getElementById("login-master-password") as HTMLInputElement;
-
-	registerMasterPassword.value = '';
-	registerConfirmMasterPassword.value = '';
-	loginMasterPassword.value = '';
-
-	showSection(section === 'Register' ? 'register-section' : 'login-section');
-};
-
 async function onLogin() {
 	const masterPassword = document.getElementById("login-master-password") as HTMLInputElement;
 
@@ -28,7 +16,15 @@ async function onLogin() {
         return;
 	}
 
-	await invoke('login', { password : passwordValue });
+	await invoke('login', { password : passwordValue }).then((response) => {
+		if (Boolean(response)) {
+			showToast("Successfully logged in!", "success");
+			showSection("dashboard-section");
+		}
+		else {
+			showToast("Password is incorrect!", "error");
+		}
+	});
 };
 
 async function onRegister() {
@@ -48,7 +44,21 @@ async function onRegister() {
 		return;
   	}
 
-	await invoke('register', { password : passwordValue });
+	await invoke('register', { password : passwordValue }).then((response) => {
+		const type = String(response);
+		if (type === "successfully-registered") {
+			showToast('Registrazione avvenuta con successo', 'success');
+			showSection("dashboard-section");
+		}
+		else if (type === "already-registered") {
+			showToast('Utente già registrato', 'error');
+			showSection("login-section");
+		}
+		else {
+			showToast("Errore durante la registrazione", "error");
+			showSection("register-section");
+		}
+	});
 };
 
 function openAddPasswordModal() {
@@ -85,32 +95,32 @@ function closeModal() {
 
 function renderPasswordList() {
 };
+
+async function init() {
+	await invoke('is_registered', {}).then((count) => {
+		showSection(count === 0 ? 'register-section' : 'login-section');
+	});
+}
   
 window.addEventListener("DOMContentLoaded", () => {
   	const loginSection = document.getElementById("login-section") as HTMLElement;
   	const registerSection = document.getElementById("register-section") as HTMLElement;
-  	const dashboardSection = document.getElementById("dashboard-section") as HTMLElement;
+  	//const dashboardSection = document.getElementById("dashboard-section") as HTMLElement;
 	const categoryButtons = document.querySelectorAll('.category-btn');
-	const gotoRegisterButton = document.getElementById("goto-register-btn") as HTMLButtonElement;
-	const gotoLoginButton = document.getElementById("goto-login-btn") as HTMLButtonElement;
+	//const gotoRegisterButton = document.getElementById("goto-register-btn") as HTMLButtonElement;
+	//const gotoLoginButton = document.getElementById("goto-login-btn") as HTMLButtonElement;
   	const registerButton = document.getElementById("register-btn") as HTMLButtonElement;
   	const loginButton = document.getElementById("login-btn") as HTMLButtonElement;
 	const logoutButton = document.getElementById('logout-btn') as HTMLButtonElement;
 	const addNewButton = document.getElementById("add-new-btn") as HTMLButtonElement;
 	const closeModalButton = document.querySelector('.close-modal') as HTMLButtonElement;
 
-
-	listen<string>('registered-successfully', () => {
-		showToast('Registrazione avvenuta con successo', 'success');
-		showSection(dashboardSection);
-	});
-
-	addNewButton.addEventListener("click", openAddPasswordModal)
+	addNewButton.addEventListener("click", openAddPasswordModal);
 	closeModalButton.addEventListener('click', closeModal);
   	registerButton.addEventListener("click", onRegister);
 	loginButton.addEventListener("click", onLogin);
-	gotoRegisterButton.addEventListener("click", () => goto("Register"));
-	gotoLoginButton.addEventListener("click", () => goto("Login"));
+	//gotoRegisterButton.addEventListener("click", () => goto("Register"));
+	//gotoLoginButton.addEventListener("click", () => goto("Login"));
 	
 	logoutButton.addEventListener('click', () => {
 		showSection(loginSection)
@@ -144,5 +154,8 @@ window.addEventListener("DOMContentLoaded", () => {
 		event.preventDefault();
 
 		if (registerSection.classList.contains("active-section")) onRegister();
+		else if (loginSection.classList.contains("active-section")) onLogin();
 	});
+
+	init();
 });
