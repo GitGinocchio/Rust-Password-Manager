@@ -35,7 +35,7 @@ fn register(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, pa
     let (encryption_key, encryption_salt) = derive(&password).map_err(|e| format!("Errore nella derivazione della chiave di crittografia: {}", e))?;
 
     let conn = state.get_conn();
-    if conn.is_none() { panic!("Connessione non inizializzata!"); }
+    if conn.is_none() { panic!("Connessione non inizializzata!"); };
 
     let count: i32 = match conn.as_ref().unwrap().query_row("SELECT COUNT(*) FROM users", [], |row| { row.get(0) }) {
         Ok(count) => count,
@@ -58,7 +58,7 @@ fn register(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, pa
 }
 
 #[tauri::command]
-fn login(app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, password: String) -> Result<bool, String> {
+fn login(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, password: String) -> Result<bool, String> {
     let conn = state.get_conn();
     if conn.is_none() {
         return Err("Connessione non inizializzata!".into());
@@ -80,7 +80,27 @@ fn login(app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, passwo
     verify(&password, &master_hash_bytes)
 }
 
+#[tauri::command]
+fn new(
+    app_handle: tauri::AppHandle, 
+    state: tauri::State<'_, AppState>,
+    title: String,
+    username: String, 
+    password: String,
+    url: String,
+    category: String,
+    notes: String,
+    favorite: bool,
+) -> Result<bool, String> {
+    println!("{title}, {username}, {password}, {url}, {url}, {category}, {notes}, {favorite}");
 
+    let conn = state.get_conn();
+    if conn.is_none() { panic!("Connessione non inizializzata!"); };
+
+    
+
+    Ok(true)
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -102,7 +122,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![register, is_registered, login])
+        .invoke_handler(tauri::generate_handler![register, is_registered, login, new])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

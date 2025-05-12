@@ -61,6 +61,40 @@ async function onRegister() {
 	});
 };
 
+async function onAddPassword() {
+	const title = document.getElementById('title') as HTMLInputElement;
+	const username = document.getElementById('username') as HTMLInputElement;
+	const password = document.getElementById('password') as HTMLInputElement;
+	const url = document.getElementById('url') as HTMLInputElement;
+	const category = document.getElementById('category') as HTMLSelectElement;
+	const notes = document.getElementById('notes') as HTMLInputElement;
+	const favorite = document.getElementById('is-favorite') as HTMLInputElement;
+
+	const title_value = title.value.trim();
+	const password_value = password.value.trim();
+
+	if (title_value.length == 0) { 
+		showToast("You must set a title to this password", "error"); 
+		return;
+	}
+	if (password_value.length == 0) { 
+		showToast("You must type a password to save", "error"); 
+		return;
+	}
+
+	await invoke("new", { 
+		title : title_value, 
+		username : username.value, 
+		password : password_value, 
+		url : url.value, 
+		category : category.value,
+		notes : notes.value, 
+		favorite : favorite.checked
+	}).then((response) => {
+		console.log(response);
+	});
+};
+
 function openAddPasswordModal() {
 	const passwordModal = document.getElementById('password-modal') as HTMLElement;
 	const modalTitle = document.getElementById('modal-title') as HTMLElement;
@@ -81,7 +115,7 @@ function openAddPasswordModal() {
 	username.value = '';
 	password.value = '';
 	url.value = '';
-	category.value = 'websites';
+	category.value = '';
 	notes.value = '';
 	isFavorite.checked = false;
 	
@@ -113,9 +147,11 @@ window.addEventListener("DOMContentLoaded", () => {
   	const loginButton = document.getElementById("login-btn") as HTMLButtonElement;
 	const logoutButton = document.getElementById('logout-btn') as HTMLButtonElement;
 	const addNewButton = document.getElementById("add-new-btn") as HTMLButtonElement;
+	const savePasswordButton = document.getElementById("save-password") as HTMLButtonElement;
 	const closeModalButton = document.querySelector('.close-modal') as HTMLButtonElement;
 
 	addNewButton.addEventListener("click", openAddPasswordModal);
+	savePasswordButton.addEventListener("click", onAddPassword)
 	closeModalButton.addEventListener('click', closeModal);
   	registerButton.addEventListener("click", onRegister);
 	loginButton.addEventListener("click", onLogin);

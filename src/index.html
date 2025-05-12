@@ -160,28 +160,29 @@
                 <div class="modal-body">
                     <form id="password-form">
                         <div class="form-group">
-                            <label for="title">Titolo</label>
-                            <input type="text" id="title" required>
+                            <label for="title"><span style="color:red">*</span> Titolo</label>
+                            <input type="text" id="title" placeholder="Dai un titolo a questa password" required>
                         </div>
                         
                         <div class="form-group">
                             <label for="username">Nome utente</label>
-                            <input type="text" id="username" required>
+                            <input type="text" id="username" placeholder="Inserisci il nome utente">
                         </div>
 
                         <div class="form-group">
                             <label for="email">Email</label>
-                            <input type="text" id="email" required>
+                            <input type="text" id="email" placeholder="Inserisci l'email">
                         </div>
                         
                         <div class="form-group">
-                            <label for="password">Password</label>
+                            <label for="password"><span style="color:red">*</span> Password</label>
                             <div class="password-input">
-                                <input type="password" id="password" required>
+                                <input type="password" id="password" placeholder="Inserisci la password" required>
                                 <button type="button" class="toggle-password">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </div>
+                            <!--
                             <div class="password-generator">
                                 <h4>Generatore di password</h4>
                                 <div class="generator-controls">
@@ -206,25 +207,34 @@
                                     <i class="fas fa-sync-alt"></i> Genera Password
                                 </button>
                             </div>
+                            -->
                         </div>
 
                         <div class="form-group">
-                            <label for="url">URL (opzionale)</label>
-                            <input type="url" id="url">
+                            <label for="url">URL</label>
+                            <input type="url" id="url" placeholder="Inserisci un url">
                         </div>
 
                         <div class="form-group">
                             <label for="category">Categoria</label>
-                            <select id="category">
+                            <input list="categories" id="category" name="category" value="" placeholder="Scrivi o scegli una categoria" />
+                            <datalist id="categories">
+                                <option value="Lavoro">
+                                <option value="Personale">
+                                <option value="Studio">
+                                <option value="Altro">
+                            </datalist>
+                            
+                            <!--<select id="category">
                                 <option value="websites">Sito Web</option>
                                 <option value="apps">App</option>
                                 <option value="other">Altro</option>
-                            </select>
+                            </select>-->
                         </div>
                         
                         <div class="form-group">
-                            <label for="notes">Note (opzionale)</label>
-                            <textarea id="notes"></textarea>
+                            <label for="notes">Note</label>
+                            <textarea id="notes" placeholder="Scrivi delle note"></textarea>
                         </div>
 
                         <div class="form-group">
@@ -236,7 +246,7 @@
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="text-btn modal-cancel">Annulla</button>
+                    <button type="button" id="cancel-password" class="text-btn modal-cancel">Annulla</button>
                     <button type="button" id="save-password" class="primary-btn">Salva</button>
                 </div>
             </div>
