@@ -1,77 +1,98 @@
 use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce,
+    aead::{rand_core::RngCore, Aead, KeyInit, OsRng}, Aes256Gcm, Key, Nonce // Or `Aes128Gcm`
 };
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHasher, PasswordVerifier, PasswordHash, SaltString},
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
 use base64::{engine::general_purpose, Engine as _};
-use rand::Rng;
 
 const NONCE_LEN: usize = 12;
 
-pub fn derive(password: &String) -> Result<(Vec<u8>, SaltString), String> {
+pub fn hash_master_password(master_password: &String) -> Result<String, String> {
     let salt = SaltString::generate(&mut OsRng);
-
     let argon2 = Argon2::default();
 
-    match argon2.hash_password(password.as_bytes(), &salt) {
-        Ok(hash) => {
-            let hash_bytes = hash.to_string().into_bytes();
-            Ok((hash_bytes, salt))
-        },
-        Err(e) => Err(format!("Errore nella derivazione della chiave: {}", e)),
+    match argon2.hash_password(master_password.as_bytes(), &salt) {
+        Ok(hash) => Ok(hash.to_string()),
+        Err(e) => Err(format!("Impossibile generare l'hash della password '{}': {}", master_password, e))
     }
 }
 
-pub fn verify(password: &String, hash_bytes: &Vec<u8>) -> Result<bool, String> {
-    let hash_str = String::from_utf8(hash_bytes.clone()).map_err(|e| format!("Hash non UTF-8 valido: {}", e))?;
-
-    let parsed_hash = PasswordHash::new(&hash_str).map_err(|e| format!("Hash Argon2 non valido: {}", e))?;
-
+pub fn verify_master_password(master_password: &String, master_hash: &String) -> Result<bool, String> {
+    let parsed_hash = PasswordHash::new(&master_hash)
+        .map_err(|e| format!("Impossibile fare il parse del master hash '{}': {}", master_hash, e))?;
     let argon2 = Argon2::default();
 
-    match argon2.verify_password(password.as_bytes(), &parsed_hash) {
+    match argon2.verify_password(master_password.as_bytes(), &parsed_hash) {
         Ok(_) => Ok(true),
         Err(argon2::password_hash::Error::Password) => Ok(false), // password sbagliata
         Err(e) => Err(format!("Errore durante la verifica della password: {}", e)),
     }
 }
 
-pub fn encrypt(data: &[u8], key: &[u8]) -> Result<String, String> {
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|e| format!("Errore nella creazione del cifrante: {:?}", e))?;
+pub fn derive_key(master_password: &String) -> Result<Key<Aes256Gcm>, String> {
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
 
-    let nonce_bytes = rand::rng().random::<[u8; NONCE_LEN]>();
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
-    let ciphertext = cipher
-        .encrypt(nonce, data)
-        .map_err(|e| format!("Errore cifratura: {:?}", e))?;
-
-    // Concatena nonce + ciphertext
-    let mut output = nonce_bytes.to_vec();
-    output.extend(ciphertext);
-
-    Ok(general_purpose::STANDARD.encode(output)) // restituisce base64
+    let mut key_bytes = [0u8; 32];
+    argon2.hash_password_into(master_password.as_bytes(), salt.as_str().as_bytes(), &mut key_bytes)
+          .map_err(|e| format!("Impossibile generare la chiave derivata dalla master password: {}", e))?;
+    
+    Ok(Key::<Aes256Gcm>::from_slice(&key_bytes).clone())
 }
 
-pub fn decrypt(encoded_data: &str, key: &[u8]) -> Result<Vec<u8>, String> {
-    let raw = general_purpose::STANDARD
-        .decode(encoded_data)
-        .map_err(|e| format!("Base64 errato: {}", e))?;
+pub fn derive_key_with_salt(master_password: &String, master_hash: &String) -> Result<Key<Aes256Gcm>, String> {
+    let parsed_hash = PasswordHash::new(&master_hash)
+        .map_err(|e| format!("Impossibile fare il parse del master hash '{}': {}", master_hash, e))?;
+    let argon2 = Argon2::default();
 
-    if raw.len() < NONCE_LEN {
-        return Err("Dati cifrati troppo corti".into());
+    if parsed_hash.salt.is_none() { return Err("master hash has no salt in it!".to_string()); }
+
+    let mut key_bytes = [0u8; 32];
+    argon2.hash_password_into(master_password.as_bytes(), parsed_hash.salt.unwrap().as_str().as_bytes(), &mut key_bytes)
+          .map_err(|e| format!("Impossibile generare la chiave derivata dalla master password: {}", e))?;
+    
+    Ok(Key::<Aes256Gcm>::from_slice(&key_bytes).clone())
+}
+
+pub fn create_cipher(key : Key<Aes256Gcm>) -> Aes256Gcm {
+    Aes256Gcm::new(&key)
+}
+
+pub fn encrypt(plaintext: &String, cipher: &Aes256Gcm) -> Result<String, String> {
+    // Genera un nonce casuale
+    let mut nonce_bytes = [0u8; NONCE_LEN];
+    OsRng.fill_bytes(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+
+    // Cifra il messaggio
+    let ciphertext = cipher.encrypt(nonce, plaintext.as_bytes())
+        .map_err(|e| format!("Errore di cifratura: {}", e))?;
+
+    // Concateno nonce + ciphertext
+    let mut combined = Vec::new();
+    combined.extend_from_slice(&nonce_bytes);
+    combined.extend_from_slice(&ciphertext);
+
+    // Codifico in base64 per salvarlo o trasmetterlo
+    Ok(general_purpose::STANDARD.encode(&combined))
+}
+
+pub fn decrypt(encoded: &String, cipher: &Aes256Gcm) -> Result<String, String> {
+    let combined = general_purpose::STANDARD.decode(encoded).map_err(|e| format!("Base64 decoding error: {}", e))?;
+
+    if combined.len() < NONCE_LEN {
+        return Err("Dati troppo brevi per contenere un nonce valido.".to_string());
     }
 
-    let (nonce_bytes, ciphertext) = raw.split_at(NONCE_LEN);
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|e| format!("Errore nella creazione del cifrante: {:?}", e))?;
+    let (nonce_bytes, ciphertext) = combined.split_at(NONCE_LEN);
     let nonce = Nonce::from_slice(nonce_bytes);
 
-    cipher
+    let decrypted_bytes = cipher
         .decrypt(nonce, ciphertext)
-        .map_err(|e| format!("Errore decifratura: {:?}", e))
+        .map_err(|e| format!("Errore di decifratura: {}", e))?;
+
+    // Converti da Vec<u8> a String
+    String::from_utf8(decrypted_bytes).map_err(|e| format!("Errore UTF-8: {}", e))
 }

@@ -1,24 +1,25 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
-use std::sync::{Arc, Mutex};
+use rusqlite::params;
 use tauri::{Emitter, Manager};
 
 mod state;
 use state::AppState;
 
+mod utils;
+use utils::empty_to_null;
+
 mod db;
 use db::init_db;
 
 mod crypto;
-use crypto::{decrypt, derive, encrypt, verify};
+use crypto::{decrypt, derive_key, derive_key_with_salt, create_cipher, encrypt, hash_master_password, verify_master_password};
 
 #[tauri::command]
 fn is_registered(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>) -> i32 {
     let conn = state.get_conn();
 
-    if conn.is_none() { panic!("Connessione non inizializzata!"); }
-
-    let count: i32 = match conn.as_ref().unwrap().query_row("SELECT COUNT(*) FROM users", [], |row| { row.get(0) }) {
+    let count: i32 = match conn.query_row("SELECT COUNT(*) FROM users", [], |row| { row.get(0) }) {
         Ok(count) => count,
         Err(e) => {
             println!("Errore nella query del conteggio degli utenti: {}", e);
@@ -31,13 +32,9 @@ fn is_registered(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState
 
 #[tauri::command]
 fn register(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, password: String) -> Result<&str, String> {
-    let (master_hash, master_salt) = derive(&password).map_err(|e| format!("Errore nella derivazione della chiave della master password: {}", e))?;
-    let (encryption_key, encryption_salt) = derive(&password).map_err(|e| format!("Errore nella derivazione della chiave di crittografia: {}", e))?;
-
     let conn = state.get_conn();
-    if conn.is_none() { panic!("Connessione non inizializzata!"); };
 
-    let count: i32 = match conn.as_ref().unwrap().query_row("SELECT COUNT(*) FROM users", [], |row| { row.get(0) }) {
+    let count: i32 = match conn.query_row("SELECT COUNT(*) FROM users", [], |row| { row.get(0) }) {
         Ok(count) => count,
         Err(e) => {
             println!("Errore nella query del conteggio degli utenti: {}", e);
@@ -47,12 +44,14 @@ fn register(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, pa
 
     if count > 0 { return Ok("already-registered"); };
 
-    state.set_key(encryption_key);
+    let master_hash = hash_master_password(&password).map_err(|e| format!("Errore nella creazione dell'hash della password: {}", e))?;
+    
+    let key = derive_key(&password).map_err(|e| format!("Errore nella derivazione della chiave di crittografia: {}", e))?;
+    state.set_cipher(create_cipher(key));
 
-    conn.as_ref().unwrap().execute(
-        "INSERT INTO users (master_hash, master_salt, encryption_salt) VALUES (?1, ?2, ?3)",
-        (master_hash, master_salt.as_str(), encryption_salt.as_str()),
-    ).map_err(|e| format!("Errore nell'inserimento utente: {}", e))?;
+    conn.execute("INSERT INTO users (master_hash) VALUES (?1)", [master_hash])
+        .map_err(|e| format!("Errore nell'inserimento utente: {}", e))?;
+
 
     Ok("successfully-registered")
 }
@@ -60,12 +59,9 @@ fn register(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, pa
 #[tauri::command]
 fn login(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, password: String) -> Result<bool, String> {
     let conn = state.get_conn();
-    if conn.is_none() {
-        return Err("Connessione non inizializzata!".into());
-    }
 
-    let conn = conn.as_ref().unwrap();
-    let mut stmt = conn.prepare("SELECT master_hash FROM users LIMIT 1").map_err(|e| format!("Errore nella preparazione della query: {}", e))?;
+    let mut stmt = conn.prepare("SELECT master_hash FROM users LIMIT 1")
+                       .map_err(|e| format!("Errore nella preparazione della query: {}", e))?;
 
     let mut rows = stmt.query([]).map_err(|e| format!("Errore durante l'esecuzione della query: {}", e))?;
 
@@ -75,9 +71,20 @@ fn login(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, passw
         Err(e) => return Err(format!("Errore nel recupero della riga: {}", e)),
     };
 
-    let master_hash_bytes: Vec<u8> = row.get(0).map_err(|e| format!("Errore durante il recupero dell'hash: {}", e))?;
+    let master_hash_bytes: String = row.get(0)
+        .map_err(|e| format!("Errore durante il recupero dell'hash: {}", e))?;
 
-    verify(&password, &master_hash_bytes)
+    let verified = verify_master_password(&password, &master_hash_bytes);
+    if verified.is_err() { return verified; }
+
+    let key = derive_key_with_salt(&password, &master_hash_bytes)
+             .map_err(|e| format!("Errore nella derivazione della chiave di crittografia: {}", e))?;
+
+    println!("Encryption key: {key:?}");
+
+    state.set_cipher(create_cipher(key));
+
+    verified
 }
 
 #[tauri::command]
@@ -86,18 +93,39 @@ fn new(
     state: tauri::State<'_, AppState>,
     title: String,
     username: String, 
+    email: String,
     password: String,
     url: String,
     category: String,
     notes: String,
     favorite: bool,
 ) -> Result<bool, String> {
-    println!("{title}, {username}, {password}, {url}, {url}, {category}, {notes}, {favorite}");
+    println!("{title}, {username}, {password}, {url}, {category}, {notes}, {favorite}");
 
     let conn = state.get_conn();
-    if conn.is_none() { panic!("Connessione non inizializzata!"); };
 
-    
+    let cipher = state.get_cipher();
+    if cipher.is_none() { return Err("La chiave di crittografia non e' salvata nello stato del programma.".to_string()); }
+
+    let encrypted = encrypt(&password, &cipher.unwrap())
+                   .map_err(|e| format!("An error occurred while encrypting your password: {e}"));
+
+    println!("Encrypted password: {encrypted:?}");
+
+    let mut stmt = conn.prepare("INSERT INTO credentials (title, username, email, password, url, category, notes, favorites) 
+                                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+                       .map_err(|e| format!("Errore nella preparazione della query: {}", e))?;
+
+    stmt.execute(params![
+        empty_to_null(&title), 
+        empty_to_null(&username), 
+        empty_to_null(&email), 
+        encrypted.unwrap(),
+        empty_to_null(&url), 
+        empty_to_null(&category), 
+        empty_to_null(&notes), 
+        favorite
+    ]).map_err(|e| format!("Errore durante l'esecuzione della query: {}", e))?;
 
     Ok(true)
 }
@@ -107,19 +135,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
-        // note: forse potrei togliere setup e includerlo nel manage di modo che
-        //       posso fin da subito creare la connessione e istanziare lo stato
-        .manage(AppState::new())
         .setup(|app| {
-            match init_db(app.handle()) {
-                Ok(_) => {
-                    println!("Database inizializzato con successo!");
-                },
-                Err(e) => {
-                    panic!("Errore nell'inizializzazione del database: {e}");
-                }
-            }
+            let conn = init_db(app.handle()).map_err(|e| format!("Errore DB: {}", e))?;
 
+            app.manage(AppState::new(conn));
+            println!("Database inizializzato con successo!");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![register, is_registered, login, new])

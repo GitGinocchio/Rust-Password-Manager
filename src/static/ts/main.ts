@@ -17,6 +17,7 @@ async function onLogin() {
 	}
 
 	await invoke('login', { password : passwordValue }).then((response) => {
+		console.log(response);
 		if (Boolean(response)) {
 			showToast("Successfully logged in!", "success");
 			showSection("dashboard-section");
@@ -62,8 +63,11 @@ async function onRegister() {
 };
 
 async function onAddPassword() {
+	const passwordModal = document.getElementById('password-modal') as HTMLElement;
+
 	const title = document.getElementById('title') as HTMLInputElement;
 	const username = document.getElementById('username') as HTMLInputElement;
+	const email = document.getElementById('email') as HTMLInputElement;
 	const password = document.getElementById('password') as HTMLInputElement;
 	const url = document.getElementById('url') as HTMLInputElement;
 	const category = document.getElementById('category') as HTMLSelectElement;
@@ -84,14 +88,21 @@ async function onAddPassword() {
 
 	await invoke("new", { 
 		title : title_value, 
-		username : username.value, 
+		username : username.value,
+		email: email.value,
 		password : password_value, 
 		url : url.value, 
 		category : category.value,
 		notes : notes.value, 
 		favorite : favorite.checked
 	}).then((response) => {
-		console.log(response);
+		if (Boolean(response)) {
+			showToast("Credentials saved successfully", "success");
+		}
+		else {
+			showToast("An error occurred while saving your credentials", "error");
+		}
+		passwordModal.classList.remove('active');
 	});
 };
 
