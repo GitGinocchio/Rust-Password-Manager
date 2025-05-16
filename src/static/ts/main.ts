@@ -1,10 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from '@tauri-apps/api/event';
+//import { listen } from '@tauri-apps/api/event';
 import { showSection, showToast, Credential } from './utils.ts';
 
 // Variabili globali
 let activeCategoryFilter = 'all';
-let currentPasswordId = null;
+//let currentPasswordId = null;
 
 async function onLogin() {
 	const masterPassword = document.getElementById("login-master-password") as HTMLInputElement;
@@ -112,7 +112,7 @@ function openAddPasswordModal() {
 	const modalTitle = document.getElementById('modal-title') as HTMLElement;
 
 	modalTitle.textContent = 'Aggiungi Password';
-	currentPasswordId = null;
+	//currentPasswordId = null;
 
 	const title = document.getElementById('title') as HTMLInputElement;
 	const username = document.getElementById('username') as HTMLInputElement;
