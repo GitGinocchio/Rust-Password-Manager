@@ -547,6 +547,7 @@ input:focus, select:focus, textarea:focus {
   transition: var(--transition);
   border: 1px solid var(--color-border);
   position: relative;
+  height: fit-content;
 }
 
 .password-item:hover {
@@ -585,12 +586,13 @@ input:focus, select:focus, textarea:focus {
   color: var(--color-text);
 }
 
-.password-username {
+.password-info {
   font-size: 0.9rem;
   color: var(--color-text-light);
-  margin-bottom: 1rem;
+  margin-bottom: 0.3rem;
   white-space: nowrap;
   overflow: hidden;
+  text-wrap-mode: wrap;
   text-overflow: ellipsis;
 }
 
@@ -601,6 +603,7 @@ input:focus, select:focus, textarea:focus {
   background-color: var(--color-input-bg);
   border-radius: var(--radius-md);
   margin-bottom: 1rem;
+  margin-top: 1rem;
 }
 
 .password-dots {
@@ -660,7 +663,7 @@ input:focus, select:focus, textarea:focus {
   right: 0;
   bottom: 100%;
   margin-bottom: 0.5rem;
-  width: 150px;
+  width: max-content;
   background: var(--color-card);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
@@ -686,11 +689,16 @@ input:focus, select:focus, textarea:focus {
   color: var(--color-text);
   font-size: 0.9rem;
   transition: var(--transition);
+  width: 100%;
 }
 
 .context-menu-item:hover {
   background-color: var(--color-input-bg);
   color: var(--color-primary);
+}
+
+.delete-password-btn:hover {
+  color: var(--color-danger);
 }
 
 .context-menu-item i {
@@ -927,36 +935,38 @@ textarea {
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .dashboard-header {
-      padding: 1rem;
-      flex-wrap: wrap;
+    padding: 1rem;
+    flex-wrap: wrap;
   }
   
   .search-bar {
-      order: 3;
-      width: 100%;
-      max-width: none;
-      margin-top: 0.5rem;
+    order: 3;
+    width: 100%;
+    max-width: none;
+    margin-top: 0.5rem;
   }
   
   .dashboard-main {
-      padding: 1rem;
+    padding: 1rem;
   }
   
   .password-list {
-      grid-template-columns: 1fr;
-      gap: 1rem;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15%;
+    gap: 1rem;
   }
   
   .password-item {
-      padding: 1rem;
+    padding: 1rem;
   }
   
   .modal-content {
-      width: 95%;
+    width: 95%;
   }
   
   .generator-options {
-      flex-direction: column;
-      gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }

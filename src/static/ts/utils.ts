@@ -1,5 +1,15 @@
 
 
+export interface Credential {
+	id : Number,
+	title : String,
+	username: String | null,
+	email: String | null,
+	url: String | null,
+	notes: String | null,
+	category: String | null, 
+	favorites: Boolean
+};
 
 export function showToast(message : string, type = 'success') {
 	const toastMessage = document.getElementById('toast-message') as HTMLInputElement;

@@ -9,16 +9,6 @@ use base64::{engine::general_purpose, Engine as _};
 
 const NONCE_LEN: usize = 12;
 
-pub fn hash_master_password(master_password: &String) -> Result<String, String> {
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-
-    match argon2.hash_password(master_password.as_bytes(), &salt) {
-        Ok(hash) => Ok(hash.to_string()),
-        Err(e) => Err(format!("Impossibile generare l'hash della password '{}': {}", master_password, e))
-    }
-}
-
 pub fn verify_master_password(master_password: &String, master_hash: &String) -> Result<bool, String> {
     let parsed_hash = PasswordHash::new(&master_hash)
         .map_err(|e| format!("Impossibile fare il parse del master hash '{}': {}", master_hash, e))?;
@@ -31,28 +21,34 @@ pub fn verify_master_password(master_password: &String, master_hash: &String) ->
     }
 }
 
-pub fn derive_key(master_password: &String) -> Result<Key<Aes256Gcm>, String> {
+pub fn derive_key_and_hash_master_password(master_password: &String) -> Result<(Key<Aes256Gcm>, String), String> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
 
     let mut key_bytes = [0u8; 32];
     argon2.hash_password_into(master_password.as_bytes(), salt.as_str().as_bytes(), &mut key_bytes)
           .map_err(|e| format!("Impossibile generare la chiave derivata dalla master password: {}", e))?;
-    
-    Ok(Key::<Aes256Gcm>::from_slice(&key_bytes).clone())
+
+    match argon2.hash_password(master_password.as_bytes(), &salt) {
+        Ok(hash) => Ok((Key::<Aes256Gcm>::from_slice(&key_bytes).clone(), hash.to_string())),
+        Err(e) => Err(format!("Impossibile generare l'hash della password '{}': {}", master_password, e))
+    }
 }
 
 pub fn derive_key_with_salt(master_password: &String, master_hash: &String) -> Result<Key<Aes256Gcm>, String> {
     let parsed_hash = PasswordHash::new(&master_hash)
-        .map_err(|e| format!("Impossibile fare il parse del master hash '{}': {}", master_hash, e))?;
+        .map_err(|e| format!("Impossibile fare il parse del master hash: {}", e))?;
+    
+    let salt = parsed_hash
+        .salt
+        .ok_or("Hash della master password non contiene il salt!")?;
+
     let argon2 = Argon2::default();
 
-    if parsed_hash.salt.is_none() { return Err("master hash has no salt in it!".to_string()); }
-
     let mut key_bytes = [0u8; 32];
-    argon2.hash_password_into(master_password.as_bytes(), parsed_hash.salt.unwrap().as_str().as_bytes(), &mut key_bytes)
-          .map_err(|e| format!("Impossibile generare la chiave derivata dalla master password: {}", e))?;
-    
+    argon2.hash_password_into(master_password.as_bytes(), salt.as_str().as_bytes(), &mut key_bytes)
+          .map_err(|e| format!("Impossibile generare la chiave derivata: {}", e))?;
+
     Ok(Key::<Aes256Gcm>::from_slice(&key_bytes).clone())
 }
 
@@ -91,7 +87,7 @@ pub fn decrypt(encoded: &String, cipher: &Aes256Gcm) -> Result<String, String> {
 
     let decrypted_bytes = cipher
         .decrypt(nonce, ciphertext)
-        .map_err(|e| format!("Errore di decifratura: {}", e))?;
+        .map_err(|e| format!("Errore di decifratura: {}", e.to_string()))?;
 
     // Converti da Vec<u8> a String
     String::from_utf8(decrypted_bytes).map_err(|e| format!("Errore UTF-8: {}", e))

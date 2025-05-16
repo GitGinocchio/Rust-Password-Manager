@@ -1,5 +1,5 @@
 [package]
-name = "password-manager-app"
+name = "VaulKeeper"
 version = "0.1.0"
 description = "A Password Manager app built with Tauri"
 authors = ["you"]

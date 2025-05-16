@@ -15,11 +15,6 @@ impl AppState {
         }
     }
 
-    pub fn set_conn(&self, conn: Connection) {
-        let mut guard = self.conn.lock().unwrap();
-        *guard = conn;
-    }
-
     pub fn get_conn(&self) -> MutexGuard<'_, Connection> {
         let guard = self.conn.lock().unwrap();
         return guard;
