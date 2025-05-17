@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 //import { listen } from '@tauri-apps/api/event';
-import { showSection, showToast, Credential } from './utils.ts';
+import { showSection, showToast, Credential, Category } from './utils.ts';
 
 // Variabili globali
 let activeCategoryFilter = 'all';
@@ -86,7 +86,8 @@ async function onAddPassword() {
 		return;
 	}
 
-	await invoke("new", { 
+	const id = passwordModal.getAttribute('data-id');
+	let data : { title: string; username: string; email: string; password: string; url: string; category: string; notes: string; favorite: boolean; id?: number; } = { 
 		title : title_value, 
 		username : username.value,
 		email: email.value,
@@ -95,7 +96,12 @@ async function onAddPassword() {
 		category : category.value,
 		notes : notes.value, 
 		favorite : favorite.checked
-	}).then(async (response) => {
+	}
+
+	if (id !== null) data.id = parseInt(id);
+
+
+	await invoke("new", data).then(async (response) => {
 		if (Boolean(response)) {
 			showToast("Credentials saved successfully", "success");
 			await fetchCredentials();
@@ -112,6 +118,7 @@ function openAddPasswordModal() {
 	const modalTitle = document.getElementById('modal-title') as HTMLElement;
 
 	modalTitle.textContent = 'Aggiungi Password';
+	passwordModal.removeAttribute('data-id');
 	//currentPasswordId = null;
 
 	const title = document.getElementById('title') as HTMLInputElement;
@@ -143,11 +150,15 @@ async function openEditPasswordModal(element : HTMLElement) {
 	modalTitle.textContent = 'Modifica Password';
 
 	const id = parseInt(String(element.dataset.id));
+
+	passwordModal.setAttribute('data-id', id.toString());
+
 	const title = ["null", "undefined"].includes(String(element.dataset.title)) ? '' : String(element.dataset.title);
 	const username = ["null", "undefined"].includes(String(element.dataset.username)) ? '' : String(element.dataset.username);
 	const email = ["null", "undefined"].includes(String(element.dataset.email)) ? '' : String(element.dataset.email);
 	const url = ["null", "undefined"].includes(String(element.dataset.url)) ? '' : String(element.dataset.url);
 	const notes = ["null", "undefined"].includes(String(element.dataset.notes)) ? '' : String(element.dataset.notes);
+	const category = ["null", "undefined"].includes(String(element.dataset.category)) ? '' : String(element.dataset.category);
 	const favorites = element.dataset.favorites === 'true' ? true : false;
 
 	const titleElement = document.getElementById('title') as HTMLInputElement;
@@ -155,6 +166,7 @@ async function openEditPasswordModal(element : HTMLElement) {
 	const emailElement = document.getElementById("email") as HTMLInputElement;
 	const urlElement = document.getElementById("url") as HTMLInputElement;
 	const notesElement = document.getElementById("notes") as HTMLInputElement;
+	const categoryElement = document.getElementById("category") as HTMLInputElement;
 	const favoritesElement = document.getElementById("is-favorite") as HTMLInputElement;
 	const passwordElement = document.getElementById("password") as HTMLInputElement;
 
@@ -167,11 +179,22 @@ async function openEditPasswordModal(element : HTMLElement) {
 	emailElement.value = email;
 	urlElement.value = url;
 	notesElement.value = notes;
+	categoryElement.value = category;
 	favoritesElement.checked = favorites;
 
 	// Apri il modal
 	passwordModal.classList.add('active');
 };
+
+async function copyPassword(id : Number) {
+	await invoke("get_password", { id : id }).then((response) => {
+		navigator.clipboard.writeText(String(response)).then(() => {
+			showToast('Password copiata negli appunti!', 'success');
+		}).catch(() => {
+			showToast('Impossibile copiare la password', 'error');
+		});
+	});
+}
 
 function closeModal() {
 	const passwordModal = document.getElementById('password-modal') as HTMLElement;
@@ -228,6 +251,40 @@ function attachPasswordItemEvents() {
 	document.addEventListener('click', () => {
 		document.querySelectorAll('.context-menu.active').forEach(menu => {
 			menu.classList.remove('active');
+		});
+	});
+
+	// Mostra password
+	document.querySelectorAll('.show-password-btn').forEach(btn => {
+		btn.addEventListener('click',async () => {
+			const closestItem = btn.closest('.password-item') as HTMLElement;
+			const closestField = btn.closest('.password-field') as HTMLElement;
+			const passwordDots = closestField.querySelector('.password-dots') as HTMLElement;
+			const id = parseInt(String(closestItem.dataset.id));
+
+			if (passwordDots.textContent == '••••••••••') {
+				await invoke("get_password", { id : id }).then((response) => {
+					passwordDots.textContent = String(response);
+				});
+				btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+			} else {
+				passwordDots.textContent = '••••••••••';
+				btn.innerHTML = '<i class="fas fa-eye"></i>';
+			}
+		});
+	});
+
+	// Copia Password
+	document.querySelectorAll('.copy-password-btn').forEach(btn => {
+		btn.addEventListener('click',async () => {
+			const closestItem = btn.closest('.password-item') as HTMLElement;
+			const id = parseInt(String(closestItem.dataset.id));
+			
+			await copyPassword(id);
+
+			const originalIcon = btn.innerHTML;
+			btn.innerHTML = '<i class="fas fa-check"></i>';
+			setTimeout(() => { btn.innerHTML = originalIcon; }, 1000);
 		});
 	});
 
@@ -322,6 +379,7 @@ async function fetchCredentials() {
 				data-username="${credential.username}"
 				data-email="${credential.email}"
 				data-notes="${credential.notes}"
+				data-category="${credential.category}"
 			>
                 ${credential.favorites ? '<div class="favorite-badge"><i class="fas fa-star"></i></div>' : ''}
                 
@@ -378,6 +436,33 @@ async function fetchCredentials() {
         `).join('');
 	});
 
+	await invoke('get_categories', {}).then((response) => {
+		const categoriesList = document.getElementById('categories') as HTMLElement;
+
+		const categories : Category[] = JSON.parse(String(response));
+
+		const activeCategory = categoriesList.querySelector('.active') as HTMLElement;
+		const activeCategoryName = activeCategory ? activeCategory.dataset.category : 'all';
+
+		categoriesList.innerHTML = `
+			<button class="category-btn ${ "all" === activeCategoryName ? "active" : ""}" data-category="all"><i class="fas fa-layer-group"></i><span>Tutti</span></button>
+			<button class="category-btn ${ "favorites" === activeCategoryName ? "active" : ""}" data-category="favorites"><i class="fas fa-star"></i><span>Preferiti</span></button>
+		` + categories.map((category) =>`
+			<button class="category-btn ${ category.name === activeCategoryName ? "active" : ""}" data-category="${category.name}"><i class="fas fa-tag"></i><span>${category.name}</span></button>
+		`).join('');
+
+		const categoryButtons = document.querySelectorAll('.category-btn');
+
+		categoryButtons.forEach(btn => {
+			btn.addEventListener('click',async () => {
+				categoryButtons.forEach(b => b.classList.remove('active'));
+				btn.classList.add('active');
+				activeCategoryFilter = btn.getAttribute('data-category') || 'all';
+				await fetchCredentials();
+			});
+    	});
+	});
+
 	attachPasswordItemEvents();
 }
 
@@ -395,7 +480,7 @@ window.addEventListener("DOMContentLoaded", () => {
   	const loginSection = document.getElementById("login-section") as HTMLElement;
   	const registerSection = document.getElementById("register-section") as HTMLElement;
   	//const dashboardSection = document.getElementById("dashboard-section") as HTMLElement;
-	const categoryButtons = document.querySelectorAll('.category-btn');
+	//const categoryButtons = document.querySelectorAll('.category-btn');
 	//const gotoRegisterButton = document.getElementById("goto-register-btn") as HTMLButtonElement;
 	//const gotoLoginButton = document.getElementById("goto-login-btn") as HTMLButtonElement;
   	const registerButton = document.getElementById("register-btn") as HTMLButtonElement;
@@ -418,15 +503,6 @@ window.addEventListener("DOMContentLoaded", () => {
 	
 	logoutButton.addEventListener('click', () => {
 		showSection(loginSection)
-    });
-
-	categoryButtons.forEach(btn => {
-        btn.addEventListener('click',async () => {
-            categoryButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            activeCategoryFilter = btn.getAttribute('data-category') || 'all';
-            await fetchCredentials();
-        });
     });
 
     document.querySelector('.modal-content')?.addEventListener('click', e => {

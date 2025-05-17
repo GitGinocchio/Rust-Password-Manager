@@ -11,6 +11,10 @@ export interface Credential {
 	favorites: Boolean
 };
 
+export interface Category {
+	name : String
+};
+
 export function showToast(message : string, type = 'success') {
 	const toastMessage = document.getElementById('toast-message') as HTMLInputElement;
 	const toastIcon = document.getElementById('toast-icon') as HTMLElement;

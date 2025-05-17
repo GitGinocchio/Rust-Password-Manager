@@ -1,5 +1,5 @@
 {
-  "name": "password-manager-app",
+  "name": "vaultkeeper",
   "description": "A password manager app built with Tauri and Vite",
   "private": true,
   "version": "0.1.0",

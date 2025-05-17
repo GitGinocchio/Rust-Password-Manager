@@ -1,16 +1,15 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
-use rusqlite::params;
-use tauri::{Emitter, Manager};
+use rusqlite::{params, ToSql};
+use tauri::{Manager};
 
-use serde::Serialize;
 use serde_json;
 
 mod state;
 use state::AppState;
 
 mod utils;
-use utils::{empty_to_null, Credential};
+use utils::{empty_to_null, Credential, Category};
 
 mod db;
 use db::init_db;
@@ -57,8 +56,6 @@ fn register(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, pa
     let (key, master_hash) = derive_key_and_hash_master_password(&password)
         .map_err(|e| format!("Errore nella creazione dell'hash e della chiave: {}", e))?;
 
-    println!("Key={key:?}");
-
     state.set_cipher(create_cipher(key));
 
     conn.execute("INSERT INTO users (master_hash) VALUES (?1)", [master_hash])
@@ -92,8 +89,6 @@ fn login(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, passw
     let key = derive_key_with_salt(&password, &master_hash)
              .map_err(|e| format!("Errore nella derivazione della chiave di crittografia: {}", e))?;
 
-    println!("Key={key:?}");
-
     state.set_cipher(create_cipher(key));
 
     verified
@@ -101,8 +96,9 @@ fn login(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>, passw
 
 #[tauri::command]
 fn new(
-    app_handle: tauri::AppHandle, 
+    _app_handle: tauri::AppHandle, 
     state: tauri::State<'_, AppState>,
+    id : Option<u32>,
     title: String,
     username: String, 
     email: String,
@@ -120,20 +116,42 @@ fn new(
     let encrypted = encrypt(&password, &cipher.unwrap())
                    .map_err(|e| format!("An error occurred while encrypting your password: {e}"));
 
-    let mut stmt = conn.prepare("INSERT INTO credentials (title, username, email, password, url, category, notes, favorites) 
-                                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
-                       .map_err(|e| format!("Errore nella preparazione della query: {}", e))?;
+    let query : &str;
 
-    stmt.execute(params![
-        empty_to_null(&title), 
-        empty_to_null(&username), 
-        empty_to_null(&email), 
-        encrypted.unwrap(),
-        empty_to_null(&url), 
-        empty_to_null(&category), 
-        empty_to_null(&notes), 
-        favorite
-    ]).map_err(|e| format!("Errore durante l'esecuzione della query: {}", e))?;
+    let title_val = empty_to_null(&title);
+    let username_val = empty_to_null(&username);
+    let email_val = empty_to_null(&email);
+    let url_val = empty_to_null(&url);
+    let category_val = empty_to_null(&category);
+    let notes_val = empty_to_null(&notes);
+    let encrypted_val = encrypted.unwrap();
+
+    if let Some(ref category) = category_val {
+        conn.execute("INSERT OR IGNORE INTO categories (name) VALUES (?1);", [category],)
+            .map_err(|e| format!("Errore durante l'inserimento: {}", e))?;
+    }
+
+    let mut params: Vec<&dyn ToSql> = vec![
+        &title_val,
+        &username_val,
+        &email_val,
+        &encrypted_val,
+        &url_val,
+        &category_val,
+        &notes_val,
+        &favorite,
+    ];
+
+    if id.is_some() {
+        query = "UPDATE credentials SET title = ?1, username = ?2, email = ?3, password = ?4, url = ?5, category = ?6, notes = ?7, favorites = ?8 WHERE id = ?9";
+        params.push(&id);
+    }
+    else {
+        query = "INSERT INTO credentials (title, username, email, password, url, category, notes, favorites) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"; 
+    }
+
+    let mut stmt = conn.prepare(query).map_err(|e| format!("Errore nella preparazione della query: {}", e))?;
+    stmt.execute(params.as_slice()).map_err(|e| format!("Errore durante l'esecuzione della query: {}", e))?;
 
     Ok(true)
 }
@@ -167,6 +185,30 @@ fn get_credentials(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppSta
     let json = serde_json::to_string(&credentials).map_err(|e| format!("Errore nella serializzazione: {}", e))?;
 
     Ok(json)
+}
+
+#[tauri::command]
+fn get_categories(_app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<String, String> {
+    let conn = state.get_conn();
+
+    let mut stmt = conn
+        .prepare("SELECT name FROM categories")
+        .map_err(|e| format!("Errore nella preparazione della query: {}", e))?;
+
+    let categories_iter = stmt.query_map([], |row| {
+        Ok(Category {
+            name: row.get(0)?,
+        })
+    })
+    .map_err(|e| format!("Errore durante l'esecuzione della query: {}", e))?;
+
+    let mut categories = Vec::new();
+    for category_result in categories_iter {
+        let category = category_result.map_err(|e| format!("Errore nel mapping dei risultati: {}", e))?;
+        categories.push(category);
+    }
+
+    serde_json::to_string(&categories).map_err(|e| format!("Errore nella serializzazione JSON: {}", e))
 }
 
 #[tauri::command]
@@ -223,7 +265,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             register, is_registered, login, new, get_credentials, 
-            set_favorite, delete_password, get_password
+            set_favorite, delete_password, get_password, get_categories
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

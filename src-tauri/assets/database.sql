@@ -24,4 +24,31 @@ CREATE TABLE IF NOT EXISTS credentials (
     FOREIGN KEY (category) REFERENCES categories(name)
 );
 
+CREATE TRIGGER IF NOT EXISTS cleanup_unused_categories
+AFTER DELETE ON credentials
+BEGIN
+    DELETE FROM categories
+    WHERE name NOT IN (
+        SELECT DISTINCT category FROM credentials WHERE category IS NOT NULL
+    );
+END;
+
+CREATE TRIGGER IF NOT EXISTS cleanup_unused_categories_after_update
+AFTER UPDATE OF category ON credentials
+BEGIN
+    DELETE FROM categories
+    WHERE name NOT IN (
+        SELECT DISTINCT category FROM credentials WHERE category IS NOT NULL
+    );
+END;
+
+CREATE TRIGGER IF NOT EXISTS cleanup_unused_categories_after_insert
+AFTER INSERT ON credentials
+BEGIN
+    DELETE FROM categories
+    WHERE name NOT IN (
+        SELECT DISTINCT category FROM credentials WHERE category IS NOT NULL
+    );
+END;
+
 COMMIT;

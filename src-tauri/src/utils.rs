@@ -13,6 +13,11 @@ pub struct Credential {
     // pub password: String,
 }
 
+#[derive(Serialize)]
+pub struct Category {
+    pub name: String,
+}
+
 
 
 pub fn empty_to_null(s: &String) -> Option<&str> {

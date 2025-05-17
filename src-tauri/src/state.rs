@@ -30,6 +30,7 @@ impl AppState {
         guard.clone()
     }
 
+/*
     pub fn clear_cipher(&self) {
         let mut guard = self.cipher.lock().unwrap();
         *guard = None;
@@ -38,4 +39,5 @@ impl AppState {
     pub fn is_authenticated(&self) -> bool {
         self.cipher.lock().unwrap().is_some()
     }
+*/
 }
