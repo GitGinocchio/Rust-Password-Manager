@@ -29,7 +29,7 @@ if "!ALIAS!"=="" (
 )
 
 :: Percorso Android SDK Build-tools: modifica qui se necessario
-set BUILD_TOOLS_PATH=%LOCALAPPDATA%\Android\Sdk\build-tools\34.0.0
+set BUILD_TOOLS_PATH=A:\Software\android_sdk\build-tools\36.0.0
 
 :: Verifica che zipalign e apksigner esistano
 if not exist "%BUILD_TOOLS_PATH%\zipalign.exe" (
@@ -51,7 +51,7 @@ if errorlevel 1 (
 
 echo.
 echo Firma APK con apksigner...
-"%BUILD_TOOLS_PATH%\apksigner.bat" sign --ks "%KEYSTORE_PATH%" --out signed.apk aligned.apk --ks-key-alias "%ALIAS%"
+"%BUILD_TOOLS_PATH%\apksigner.bat" sign --ks "%KEYSTORE_PATH%" --out signed.apk aligned.apk
 if errorlevel 1 (
     echo Errore durante la firma.
     goto end
